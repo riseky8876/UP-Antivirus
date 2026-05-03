@@ -35,32 +35,36 @@ class UpdateDatabaseUseCase @Inject constructor(
         }
         localHypatiaVersion = loadHypatiaDatabaseVersion()
         remoteHypatiaVersion = try {
-            databaseRepository.getDatabaseVersion(ScannerType.HYPATIA)
+            val remote = databaseRepository.getDatabaseVersion(ScannerType.HYPATIA)
+            // Jika server kembalikan 0 atau -1 (tidak tersedia), anggap selalu ada update
+            if (remote <= 0) localHypatiaVersion + 1 else remote
         } catch (e: Exception) {
-            Log.d("remoteHypatiaVersionError", "remoteHypatiaVersionError: $e")
-            localHypatiaVersion
+            Log.d("UpdateDatabaseUseCase", "checkHypatiaDatabaseVersion error: $e")
+            // Server tidak tersedia — anggap perlu update agar download tetap berjalan
+            localHypatiaVersion + 1
         }
         return remoteHypatiaVersion > localHypatiaVersion
     }
 
     suspend fun performUpdate(): Boolean {
         return withContext(Dispatchers.IO) {
-            if (loadHypatiaDatabaseVersion() == -1) { //if we update from the old antivirus, the bin + sig files are not the same
+            if (loadHypatiaDatabaseVersion() == -1) {
                 removeOldFiles()
             }
             try {
-                val result = databaseRepository.updateDatabase(UpAccount.getSession()?.token.orEmpty())
+                // Token dikosongkan — database publik tidak butuh auth
+                val result = databaseRepository.updateDatabase("")
                 return@withContext if (result) {
                     saveHypatiaDatabaseVersion(remoteHypatiaVersion)
                     preferencesRepository.saveData(NEW_APP_DATA, true)
                     true
                 } else {
-                    Log.d("update error", "Update error")
+                    Log.d("UpdateDatabaseUseCase", "Update failed")
                     localHypatiaVersion = loadHypatiaDatabaseVersion()
                     false
                 }
             } catch (e: Exception) {
-                Log.d("update error", "Update error: $e ")
+                Log.d("UpdateDatabaseUseCase", "performUpdate exception: $e")
                 return@withContext false
             }
         }
