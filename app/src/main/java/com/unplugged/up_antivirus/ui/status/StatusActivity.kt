@@ -199,16 +199,17 @@ class StatusActivity : BaseActivity() {
             }
 
             subscriptionState.accountSubscription?.let {
-                if (it.expirationDays() in 0..2) {
+                // FIX: expirationDays is an Int property, not a function — removed ()
+                if (it.expirationDays in 0..2) {
                     //less than 3 days left
-                    val message = if (it.expirationDays() == 0) {
+                    val message = if (it.expirationDays == 0) {
                         //expires today
                         getString(R.string.up_av_premium_subscription_expires_today_warning)
                     } else {
                         //1-3 days left
                         getString(
                             R.string.up_av_premium_subscription_expiration_warning,
-                            it.expirationDays().toString()
+                            it.expirationDays.toString()
                         )
                     }
 
